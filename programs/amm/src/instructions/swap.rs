@@ -1,4 +1,5 @@
 use crate::error::ErrorCode;
+use crate::dam::{combine_trade_fee_rate, resolve_dam_fee_add, DamRuntime, RaydiumSwapObservation};
 use crate::libraries::{
     big_num::U128, fixed_point_64, full_math::MulDiv, liquidity_math, swap_math, tick_math,
 };
@@ -585,6 +586,7 @@ pub fn exact_internal<'b, 'c: 'info, 'info>(
     ctx: &mut SwapAccounts<'b, 'info>,
     remaining_accounts: &'c [AccountInfo<'info>],
     amount_specified: u64,
+    other_amount_threshold: u64,
     sqrt_price_limit_x64: u128,
     is_base_input: bool,
 ) -> Result<u64> {
@@ -599,9 +601,11 @@ pub fn exact_internal<'b, 'c: 'info, 'info>(
     let output_balance_before = ctx.output_vault.amount;
 
     {
+        let pool_key = ctx.pool_state.key();
         swap_price_before = ctx.pool_state.load()?.sqrt_price_x64;
         let pool_state = &mut ctx.pool_state.load_mut()?;
         zero_for_one = ctx.input_vault.mint == pool_state.token_mint_0;
+        let dam_required = pool_state.is_dam_required();
 
         require_gt!(block_timestamp, pool_state.open_time);
 
@@ -618,10 +622,11 @@ pub fn exact_internal<'b, 'c: 'info, 'info>(
 
         let mut tickarray_bitmap_extension = None;
         let tick_array_states = &mut VecDeque::new();
+        let mut tail_accounts_start = remaining_accounts.len();
         tick_array_states.push_back(ctx.tick_array_state.load_mut()?);
 
-        let tick_array_bitmap_extension_key = TickArrayBitmapExtension::key(pool_state.key());
-        for account_info in remaining_accounts.into_iter() {
+        let tick_array_bitmap_extension_key = TickArrayBitmapExtension::key(pool_key);
+        for (index, account_info) in remaining_accounts.iter().enumerate() {
             if account_info.key().eq(&tick_array_bitmap_extension_key) {
                 tickarray_bitmap_extension = Some(
                     *(AccountLoader::<TickArrayBitmapExtension>::try_from(account_info)?
@@ -630,11 +635,31 @@ pub fn exact_internal<'b, 'c: 'info, 'info>(
                 );
                 continue;
             }
+            if account_info.data_len() != TickArrayState::LEN {
+                tail_accounts_start = index;
+                break;
+            }
             tick_array_states.push_back(AccountLoad::load_data_mut(account_info)?);
         }
 
-        (amount_0, amount_1) = swap_internal(
+        let dam_runtime =
+            DamRuntime::parse_optional(&remaining_accounts[tail_accounts_start..], pool_key)?;
+        let observation = RaydiumSwapObservation {
+            amount_specified,
+            other_amount_threshold,
+            sqrt_price_limit_x64,
+            is_base_input,
+            zero_for_one,
+            vault_in_balance: ctx.input_vault.amount,
+        };
+        let dam_fee_add =
+            resolve_dam_fee_add(dam_runtime.as_ref(), dam_required, &observation, &crate::id())?;
+        let effective_trade_fee_rate =
+            combine_trade_fee_rate(ctx.amm_config.trade_fee_rate, dam_fee_add)?;
+
+        (amount_0, amount_1) = swap_internal_with_trade_fee_rate(
             &ctx.amm_config,
+            effective_trade_fee_rate,
             pool_state,
             tick_array_states,
             &mut ctx.observation_state.load_mut()?,
@@ -806,6 +831,7 @@ pub fn swap<'a, 'b, 'c: 'info, 'info>(
         },
         ctx.remaining_accounts,
         amount,
+        other_amount_threshold,
         sqrt_price_limit_x64,
         is_base_input,
     )?;
