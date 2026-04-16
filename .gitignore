@@ -3,6 +3,8 @@
 .DS_Store
 target
 KeyPairs
+__pycache__/
+*.py[cod]
 *.json
 client/target
 **/*.rs.bk
