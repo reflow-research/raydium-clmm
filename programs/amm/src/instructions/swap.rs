@@ -137,10 +137,42 @@ pub fn swap_internal<'b, 'info>(
     is_base_input: bool,
     block_timestamp: u32,
 ) -> Result<(u64, u64)> {
+    swap_internal_with_trade_fee_rate(
+        amm_config,
+        amm_config.trade_fee_rate,
+        pool_state,
+        tick_array_states,
+        observation_state,
+        tickarray_bitmap_extension,
+        amount_specified,
+        sqrt_price_limit_x64,
+        zero_for_one,
+        is_base_input,
+        block_timestamp,
+    )
+}
+
+pub fn swap_internal_with_trade_fee_rate<'b, 'info>(
+    amm_config: &AmmConfig,
+    trade_fee_rate: u32,
+    pool_state: &mut RefMut<PoolState>,
+    tick_array_states: &mut VecDeque<RefMut<TickArrayState>>,
+    observation_state: &mut RefMut<ObservationState>,
+    tickarray_bitmap_extension: &Option<TickArrayBitmapExtension>,
+    amount_specified: u64,
+    sqrt_price_limit_x64: u128,
+    zero_for_one: bool,
+    is_base_input: bool,
+    block_timestamp: u32,
+) -> Result<(u64, u64)> {
     require!(amount_specified != 0, ErrorCode::ZeroAmountSpecified);
     if !pool_state.get_status_by_bit(PoolStatusBitIndex::Swap) {
         return err!(ErrorCode::NotApproved);
     }
+    require!(
+        trade_fee_rate < FEE_RATE_DENOMINATOR_VALUE,
+        ErrorCode::DamFeeRateExceeded
+    );
     require!(
         if zero_for_one {
             sqrt_price_limit_x64 < pool_state.sqrt_price_x64
@@ -302,7 +334,7 @@ pub fn swap_internal<'b, 'info>(
             target_price,
             state.liquidity,
             state.amount_specified_remaining,
-            amm_config.trade_fee_rate,
+            trade_fee_rate,
             is_base_input,
             zero_for_one,
             block_timestamp,

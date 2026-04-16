@@ -1,4 +1,5 @@
 pub mod error;
+pub mod dam;
 pub mod instructions;
 pub mod libraries;
 pub mod states;
@@ -90,6 +91,63 @@ pub mod amm_v3 {
     ///
     pub fn update_amm_config(ctx: Context<UpdateAmmConfig>, param: u8, value: u32) -> Result<()> {
         instructions::update_amm_config(ctx, param, value)
+    }
+
+    pub fn initialize_dam_model(
+        ctx: Context<InitializeDamModel>,
+        version: u8,
+        n_features: u8,
+        w_scale_q16: i32,
+        bias_i32: i32,
+        weights: Vec<i8>,
+    ) -> Result<()> {
+        instructions::initialize_dam_model(ctx, version, n_features, w_scale_q16, bias_i32, weights)
+    }
+
+    pub fn set_dam_model(
+        ctx: Context<SetDamModel>,
+        n_features: u8,
+        w_scale_q16: i32,
+        bias_i32: i32,
+        weights: Vec<i8>,
+    ) -> Result<()> {
+        instructions::set_dam_model(ctx, n_features, w_scale_q16, bias_i32, weights)
+    }
+
+    pub fn initialize_dam_pool_config(
+        ctx: Context<InitializeDamPoolConfig>,
+        enabled: bool,
+        flags: u8,
+        fee_add_cap: u32,
+        risk_threshold_q16: u16,
+        model_pubkey: Pubkey,
+    ) -> Result<()> {
+        instructions::initialize_dam_pool_config(
+            ctx,
+            enabled,
+            flags,
+            fee_add_cap,
+            risk_threshold_q16,
+            model_pubkey,
+        )
+    }
+
+    pub fn set_dam_pool_config(
+        ctx: Context<SetDamPoolConfig>,
+        enabled: bool,
+        flags: u8,
+        fee_add_cap: u32,
+        risk_threshold_q16: u16,
+        model_pubkey: Pubkey,
+    ) -> Result<()> {
+        instructions::set_dam_pool_config(
+            ctx,
+            enabled,
+            flags,
+            fee_add_cap,
+            risk_threshold_q16,
+            model_pubkey,
+        )
     }
 
     /// Creates a pool for the given token pair and the initial price

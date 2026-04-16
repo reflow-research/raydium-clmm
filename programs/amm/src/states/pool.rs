@@ -49,6 +49,8 @@ pub enum PoolStatusBitFlag {
     Disable,
 }
 
+const POOL_PADDING_FLAG_DAM_REQUIRED: u8 = 0b0000_0001;
+
 /// The pool state
 ///
 /// PDA of `[POOL_SEED, config, token_mint_0, token_mint_1]`
@@ -574,6 +576,18 @@ impl PoolState {
         self.status.bitand(status) == 0
     }
 
+    pub fn is_dam_required(&self) -> bool {
+        self.padding[0].bitand(POOL_PADDING_FLAG_DAM_REQUIRED) != 0
+    }
+
+    pub fn set_dam_required(&mut self, required: bool) {
+        if required {
+            self.padding[0] = self.padding[0].bitor(POOL_PADDING_FLAG_DAM_REQUIRED);
+        } else {
+            self.padding[0] = self.padding[0].bitand(!POOL_PADDING_FLAG_DAM_REQUIRED);
+        }
+    }
+
     pub fn is_overflow_default_tickarray_bitmap(&self, tick_indexs: Vec<i32>) -> bool {
         let (min_tick_array_start_index_boundary, max_tick_array_index_boundary) =
             self.tick_array_start_index_range();
@@ -1018,6 +1032,19 @@ pub mod pool_test {
                 pool_state.get_status_by_bit(PoolStatusBitIndex::DecreaseLiquidity),
                 false
             );
+        }
+
+        #[test]
+        fn get_set_dam_required() {
+            let mut pool_state = PoolState::default();
+
+            assert!(!pool_state.is_dam_required());
+
+            pool_state.set_dam_required(true);
+            assert!(pool_state.is_dam_required());
+
+            pool_state.set_dam_required(false);
+            assert!(!pool_state.is_dam_required());
         }
     }
 

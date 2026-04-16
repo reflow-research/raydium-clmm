@@ -107,4 +107,12 @@ pub enum ErrorCode {
     CalculateOverflow,
     #[msg("TransferFee calculate not match")]
     TransferFeeCalculateNotMatch,
+    #[msg("DAM config is invalid")]
+    DamInvalidConfig,
+    #[msg("DAM model is invalid")]
+    DamInvalidModel,
+    #[msg("DAM remaining accounts are invalid")]
+    DamInvalidRemainingAccounts,
+    #[msg("DAM fee rate exceeds the supported limit")]
+    DamFeeRateExceeded,
 }

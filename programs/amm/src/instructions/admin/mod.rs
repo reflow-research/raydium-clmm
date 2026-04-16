@@ -27,3 +27,15 @@ pub use create_support_mint_associated::*;
 
 pub mod close_protocol_position;
 pub use close_protocol_position::*;
+
+pub mod initialize_dam_model;
+pub use initialize_dam_model::*;
+
+pub mod set_dam_model;
+pub use set_dam_model::*;
+
+pub mod initialize_dam_pool_config;
+pub use initialize_dam_pool_config::*;
+
+pub mod set_dam_pool_config;
+pub use set_dam_pool_config::*;

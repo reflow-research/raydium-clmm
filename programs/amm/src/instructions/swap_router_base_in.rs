@@ -95,6 +95,7 @@ pub fn swap_router_base_in<'a, 'b, 'c: 'info, 'info>(
             accounts,
             amount_in_internal,
             0,
+            0,
             true,
         )?;
         // output token is the new swap input token
