@@ -1,7 +1,9 @@
 use std::collections::VecDeque;
 use std::ops::Deref;
 
-use crate::dam::{combine_trade_fee_rate, DamRuntime, RaydiumSwapObservation};
+use crate::dam::{
+    combine_trade_fee_rate, resolve_dam_fee_add, DamRuntime, RaydiumSwapObservation,
+};
 use crate::error::ErrorCode;
 use crate::libraries::tick_math;
 use crate::swap::swap_internal_with_trade_fee_rate;
@@ -151,28 +153,16 @@ pub fn exact_internal_v2<'c: 'info, 'info>(
 
         let dam_runtime =
             DamRuntime::parse_optional(&remaining_accounts[tail_accounts_start..], pool_key)?;
-        if dam_required && dam_runtime.is_none() {
-            return err!(ErrorCode::DamInvalidRemainingAccounts);
-        }
-
-        let dam_fee_add = if let Some(dam_runtime) = dam_runtime.as_ref() {
-            if dam_required && !dam_runtime.config.enabled {
-                return err!(ErrorCode::DamInvalidConfig);
-            }
-            let observation = RaydiumSwapObservation {
-                amount_specified: amount_calculate_specified,
-                other_amount_threshold,
-                sqrt_price_limit_x64,
-                is_base_input,
-                zero_for_one,
-                vault_in_balance: ctx.input_vault.amount,
-            };
-            let decision = dam_runtime.decide(&observation, &crate::id())?;
-            dam_runtime.emit_return_data_if_enabled(&decision)?;
-            decision.fee_add.get()
-        } else {
-            0
+        let observation = RaydiumSwapObservation {
+            amount_specified: amount_calculate_specified,
+            other_amount_threshold,
+            sqrt_price_limit_x64,
+            is_base_input,
+            zero_for_one,
+            vault_in_balance: ctx.input_vault.amount,
         };
+        let dam_fee_add =
+            resolve_dam_fee_add(dam_runtime.as_ref(), dam_required, &observation, &crate::id())?;
 
         let effective_trade_fee_rate =
             combine_trade_fee_rate(ctx.amm_config.trade_fee_rate, dam_fee_add)?;
