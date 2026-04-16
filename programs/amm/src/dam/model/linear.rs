@@ -89,10 +89,10 @@ fn sigmoid_approx_q16(logit_q16: i32) -> u16 {
 mod tests {
     use super::*;
 
-    use crate::dam::constants::DAM_FEATURE_COUNT;
+    use crate::dam::schema::DAM_FEATURE_COUNT;
 
     #[test]
-    fn linear_model_matches_whirlpool_golden_vector() {
+    fn linear_model_matches_dam_golden_vector() {
         let mut weights = [0i8; DAM_FEATURE_COUNT];
         weights[0] = 3;
         weights[1] = -2;
@@ -105,9 +105,7 @@ mod tests {
         features[1] = -4;
         features[2] = 2;
 
-        let inference = model
-            .infer(&FeatureVector::from_array(features))
-            .unwrap();
+        let inference = model.infer(&FeatureVector::from_array(features)).unwrap();
 
         assert_eq!(inference.dot_i32, 39);
         assert_eq!(inference.logit_q16.get(), 89_872);

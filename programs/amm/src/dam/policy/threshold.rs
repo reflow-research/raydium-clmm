@@ -3,8 +3,7 @@ use anchor_lang::prelude::*;
 use crate::error::ErrorCode;
 
 use super::super::{
-    constants::DAM_MAX_RISK_THRESHOLD_Q16,
-    DamFeePolicy, FeeRateU32, ProbabilityQ16, RiskScoreQ16,
+    constants::DAM_MAX_RISK_THRESHOLD_Q16, DamFeePolicy, FeeRateU32, ProbabilityQ16, RiskScoreQ16,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -50,8 +49,8 @@ impl DamFeePolicy for ThresholdFeePolicy {
     }
 
     fn compute_fee_add(&self, risk_q16: RiskScoreQ16) -> Result<FeeRateU32> {
-        let fee_add = u128::from(self.fee_add_cap.get()) * u128::from(risk_q16.get())
-            / u128::from(u16::MAX);
+        let fee_add =
+            u128::from(self.fee_add_cap.get()) * u128::from(risk_q16.get()) / u128::from(u16::MAX);
 
         FeeRateU32::new(fee_add as u32)
     }
@@ -62,7 +61,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn threshold_policy_matches_whirlpool_golden_values() {
+    fn threshold_policy_matches_dam_golden_values() {
         let policy = ThresholdFeePolicy::new(FeeRateU32::new(30_000).unwrap(), 40_000).unwrap();
 
         let risk = policy.compute_risk(ProbabilityQ16::new(51_717));

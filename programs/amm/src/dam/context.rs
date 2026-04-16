@@ -3,10 +3,7 @@ use anchor_lang::{
     solana_program::{program::set_return_data, sysvar::instructions},
 };
 
-use crate::{
-    error::ErrorCode,
-    states::config::FEE_RATE_DENOMINATOR_VALUE,
-};
+use crate::{error::ErrorCode, states::config::FEE_RATE_DENOMINATOR_VALUE};
 
 use super::{
     accounts::{DamModelWeights, DamPoolConfig},
@@ -52,7 +49,11 @@ impl<'info> DamRuntime<'info> {
         let config = Account::<DamPoolConfig>::try_from(config_info)?.into_inner();
         let model = Account::<DamModelWeights>::try_from(model_info)?.into_inner();
 
-        require_keys_eq!(config.pool, pool_key, ErrorCode::DamInvalidRemainingAccounts);
+        require_keys_eq!(
+            config.pool,
+            pool_key,
+            ErrorCode::DamInvalidRemainingAccounts
+        );
         require!(
             config.bump == [expected_bump],
             ErrorCode::DamInvalidRemainingAccounts
@@ -171,7 +172,7 @@ mod tests {
 
     use crate::dam::{
         DamModelWeights, DamPoolConfig, DAM_FEATURE_COUNT, DAM_MODEL_EXPECTED_VERSION,
-        DAM_MODEL_MAX_FEATURES, DAM_POOL_CONFIG_SEED,
+        DAM_MODEL_STORAGE_FEATURE_CAPACITY, DAM_POOL_CONFIG_SEED,
     };
 
     fn build_test_observation() -> RaydiumSwapObservation {
@@ -192,7 +193,7 @@ mod tests {
             padding: [0; 2],
             bias_i32: 0,
             w_scale_q16: 0,
-            weights_i8: [0; DAM_MODEL_MAX_FEATURES],
+            weights_i8: [0; DAM_MODEL_STORAGE_FEATURE_CAPACITY],
             reserved: [0; 64],
         };
         let weights = vec![0i8; DAM_FEATURE_COUNT];
@@ -310,8 +311,8 @@ mod tests {
 
         let accounts = Box::leak(
             vec![
-            build_anchor_account_info(config_key, &config),
-            build_anchor_account_info(wrong_model_key, &model),
+                build_anchor_account_info(config_key, &config),
+                build_anchor_account_info(wrong_model_key, &model),
             ]
             .into_boxed_slice(),
         );
@@ -332,9 +333,9 @@ mod tests {
 
         let accounts = Box::leak(
             vec![
-            build_anchor_account_info(config_key, &config),
-            build_anchor_account_info(model_key, &model),
-            build_raw_account_info(Pubkey::new_unique()),
+                build_anchor_account_info(config_key, &config),
+                build_anchor_account_info(model_key, &model),
+                build_raw_account_info(Pubkey::new_unique()),
             ]
             .into_boxed_slice(),
         );

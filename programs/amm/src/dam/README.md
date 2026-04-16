@@ -7,11 +7,14 @@ This folder is the direct Raydium-side DAM integration slice.
 - `accounts.rs`
   - Anchor account/state for DAM pool config and shared model weights.
 - `features/`
-  - Raydium swap feature extraction and feature-frame adapters.
+  - Raydium swap feature extraction and feature-frame adapters for the
+    canonical DAM CPI structural atomic v1 ABI.
 - `model/`
   - Pure inference code. No account loading and no instruction context.
 - `policy/`
   - Risk-threshold and fee-upcharge policy.
+- `schema.rs`
+  - Frozen DAM v1 slot map, schema identifier, and intentional-zero slot list.
 - `engine.rs`
   - One orchestration function that composes feature source, model, and policy.
 - `traits.rs`
@@ -32,19 +35,23 @@ This folder is the direct Raydium-side DAM integration slice.
 - Account adapters
   - `DamPoolConfig::fee_policy()` and `DamModelWeights::linear_model()` convert account state into pure policy/model values at the edge, so the swap loop can run on plain data.
 
-## Planned Raydium Splice Points
+## Raydium Splice Points
 
 - `instructions/swap_v2.rs`
-  - Build the `RaydiumSwapObservation`, load DAM remaining accounts, run the legacy-compatible DAM feature and inference path, and pass the fee add into swap math.
+  - Builds the `RaydiumSwapObservation`, loads DAM remaining accounts, runs the
+    canonical 43-slot DAM v1 feature and inference path, and passes the fee add
+    into swap math.
 - `instructions/swap.rs`
-  - Legacy path can reuse the same engine through a narrower feature adapter.
+  - Legacy swap entrypoint reuses the same DAM seam and packed ABI.
 - `libraries/swap_math.rs`
-  - Keep swap-step math pure; DAM only changes the fee-rate input.
+  - Keeps swap-step math pure; DAM only changes the fee-rate input.
 - `instructions/admin/`
-  - Add DAM init/update handlers for model weights and pool config after the swap-side seam is wired.
+  - Hosts DAM init/update handlers for model weights and pool config.
 
 ## Remaining Accounts
 
 - `swap_v2` tail accounts:
   - `[dam_pool_config, dam_model, instructions_sysvar]`
-- `instructions_sysvar` is required when DAM is enabled so the feature frame stays aligned with the original DAM transaction-signal model layout.
+- `instructions_sysvar` is required when DAM is enabled so the feature frame
+  stays aligned with the canonical DAM CPI structural atomic v1 transaction-
+  signal layout.

@@ -5,6 +5,7 @@ pub mod engine;
 pub mod features;
 pub mod model;
 pub mod policy;
+pub mod schema;
 pub mod traits;
 pub mod types;
 
@@ -15,5 +16,6 @@ pub use engine::*;
 pub use features::*;
 pub use model::*;
 pub use policy::*;
+pub use schema::*;
 pub use traits::*;
 pub use types::*;

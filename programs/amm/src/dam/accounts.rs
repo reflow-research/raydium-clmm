@@ -4,12 +4,12 @@ use crate::error::ErrorCode;
 
 use super::{
     constants::{
-        DAM_BASE_FEATURE_COUNT, DAM_CONFIG_FLAG_EMIT_RETURN_DATA, DAM_FEATURE_COUNT,
-        DAM_MAX_RISK_THRESHOLD_Q16, DAM_MODEL_EXPECTED_VERSION, DAM_MODEL_MAX_FEATURES,
-        DAM_MODEL_MAX_W_SCALE_Q16,
+        DAM_CONFIG_FLAG_EMIT_RETURN_DATA, DAM_MAX_RISK_THRESHOLD_Q16, DAM_MODEL_EXPECTED_VERSION,
+        DAM_MODEL_MAX_W_SCALE_Q16, DAM_MODEL_STORAGE_FEATURE_CAPACITY,
     },
     model::LinearModel,
     policy::ThresholdFeePolicy,
+    schema::DAM_FEATURE_COUNT,
     FeeRateU32,
 };
 
@@ -52,7 +52,13 @@ impl DamPoolConfig {
         self.padding = [0; 5];
         self.reserved0 = [0; 2];
         self.reserved = [0; 64];
-        self.update(enabled, flags, fee_add_cap, risk_threshold_q16, model_pubkey)
+        self.update(
+            enabled,
+            flags,
+            fee_add_cap,
+            risk_threshold_q16,
+            model_pubkey,
+        )
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -69,7 +75,10 @@ impl DamPoolConfig {
             risk_threshold_q16 < u16::MAX && risk_threshold_q16 <= DAM_MAX_RISK_THRESHOLD_Q16,
             ErrorCode::DamInvalidConfig
         );
-        require!(model_pubkey != Pubkey::default(), ErrorCode::DamInvalidConfig);
+        require!(
+            model_pubkey != Pubkey::default(),
+            ErrorCode::DamInvalidConfig
+        );
 
         self.enabled = enabled;
         self.flags = flags;
@@ -98,13 +107,13 @@ pub struct DamModelWeights {
 
     pub bias_i32: i32,
     pub w_scale_q16: i32,
-    pub weights_i8: [i8; DAM_MODEL_MAX_FEATURES],
+    pub weights_i8: [i8; DAM_MODEL_STORAGE_FEATURE_CAPACITY],
 
     pub reserved: [u8; 64],
 }
 
 impl DamModelWeights {
-    pub const LEN: usize = 8 + 1 + 1 + 2 + 4 + 4 + DAM_MODEL_MAX_FEATURES + 64;
+    pub const LEN: usize = 8 + 1 + 1 + 2 + 4 + 4 + DAM_MODEL_STORAGE_FEATURE_CAPACITY + 64;
 
     pub fn initialize(
         &mut self,
@@ -138,11 +147,12 @@ impl DamModelWeights {
 
         let feature_count = usize::from(n_features);
         require!(
-            feature_count >= DAM_BASE_FEATURE_COUNT && feature_count <= DAM_FEATURE_COUNT,
+            feature_count == DAM_FEATURE_COUNT,
             ErrorCode::DamInvalidModel
         );
         require!(
-            weights.len() == feature_count && feature_count <= DAM_MODEL_MAX_FEATURES,
+            weights.len() == feature_count
+                && DAM_FEATURE_COUNT <= DAM_MODEL_STORAGE_FEATURE_CAPACITY,
             ErrorCode::DamInvalidModel
         );
         require!(
@@ -154,7 +164,7 @@ impl DamModelWeights {
         self.padding = [0; 2];
         self.bias_i32 = bias_i32;
         self.w_scale_q16 = w_scale_q16;
-        self.weights_i8 = [0; DAM_MODEL_MAX_FEATURES];
+        self.weights_i8 = [0; DAM_MODEL_STORAGE_FEATURE_CAPACITY];
         self.weights_i8[..feature_count].copy_from_slice(weights);
         Ok(())
     }
@@ -167,7 +177,7 @@ impl DamModelWeights {
 
         let feature_count = usize::from(self.n_features);
         require!(
-            feature_count >= DAM_BASE_FEATURE_COUNT && feature_count <= DAM_FEATURE_COUNT,
+            feature_count == DAM_FEATURE_COUNT,
             ErrorCode::DamInvalidModel
         );
         require!(
@@ -184,5 +194,71 @@ impl DamModelWeights {
         weights.copy_from_slice(&self.weights_i8[..DAM_FEATURE_COUNT]);
 
         LinearModel::new(self.n_features, self.w_scale_q16, self.bias_i32, weights)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn blank_model() -> DamModelWeights {
+        DamModelWeights {
+            version: 0,
+            n_features: 0,
+            padding: [0; 2],
+            bias_i32: 0,
+            w_scale_q16: 0,
+            weights_i8: [0; DAM_MODEL_STORAGE_FEATURE_CAPACITY],
+            reserved: [0; 64],
+        }
+    }
+
+    #[test]
+    fn dam_model_rejects_feature_count_40() {
+        let mut model = blank_model();
+        let weights = vec![0i8; 40];
+
+        let err = model
+            .initialize(DAM_MODEL_EXPECTED_VERSION, 40, 2_048, 10_000, &weights)
+            .unwrap_err();
+
+        assert!(anchor_lang::error!(ErrorCode::DamInvalidModel).eq(&err));
+    }
+
+    #[test]
+    fn dam_model_rejects_feature_count_45() {
+        let mut model = blank_model();
+        let weights = vec![0i8; 45];
+
+        let err = model
+            .initialize(DAM_MODEL_EXPECTED_VERSION, 45, 2_048, 10_000, &weights)
+            .unwrap_err();
+
+        assert!(anchor_lang::error!(ErrorCode::DamInvalidModel).eq(&err));
+    }
+
+    #[test]
+    fn dam_model_update_zeroes_storage_tail() {
+        let mut model = blank_model();
+        let weights = vec![7i8; DAM_FEATURE_COUNT];
+
+        model
+            .initialize(
+                DAM_MODEL_EXPECTED_VERSION,
+                DAM_FEATURE_COUNT as u8,
+                2_048,
+                10_000,
+                &weights,
+            )
+            .unwrap();
+        model.weights_i8[DAM_FEATURE_COUNT..].fill(5);
+
+        model
+            .update(DAM_FEATURE_COUNT as u8, 2_048, 10_000, &weights)
+            .unwrap();
+
+        assert!(model.weights_i8[DAM_FEATURE_COUNT..]
+            .iter()
+            .all(|weight| *weight == 0));
     }
 }
